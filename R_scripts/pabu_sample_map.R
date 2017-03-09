@@ -8,6 +8,7 @@ range.df <- fortify(range)
 range.df <- subset(range.df,id != 0)
 range.df$season <- gsub("1","Nonbreeding",range.df$id) %>% gsub("2","Breeding",.) %>% gsub("3","Migration",.)
 
+#sampling map with range
 count_per_locality <- ddply(bunting,.(Longitude,Latitude),summarize,n=length(Country))
 
 ggplot()+coord_map()+theme_bw()+theme(panel.grid=element_blank())+ylim(7,40)+xlim(-115,-75)+
