@@ -13,14 +13,7 @@ pabu.palette <- c("#2B59A8","#E94F24","#C9DA2B",viridis(5))
 range <- shapefile("~/Dropbox/BirdlifeIntnl_Range_Maps/Passerina_ciris_22723957.shp")
 
 #SNP data
-# seq <- read.genepop("./stacks/outfiles/Scoronata/all_k3/batch_1.gen")
-seq <- read.structure("./pyrad/outfiles/pabu_c48h10.str",n.ind=95,n.loc=2659,onerowperind = F,col.lab=1,col.pop=0,row.marknames=0,NA.char="-9",ask=F)
- seq <- read.structure("./pyrad/outfiles/pabu_c48.str",n.ind=95,n.loc=5761,onerowperind = F,col.lab=1,col.pop=0,row.marknames=0,NA.char="-9",ask=F)
-# seq <- read.structure("./pyrad/outfiles/pabu_c60noOG.str",n.ind=95,n.loc=4470,onerowperind = F,col.lab=1,col.pop=0,row.marknames=0,NA.char="-9",ask=F)
-# seq <- read.structure("./pyrad/outfiles/pabu_c85h60.str",n.ind=95,n.loc=1625,onerowperind = F,col.lab=1,col.pop=0,row.marknames=0,NA.char="-9",ask=F)
-# seq <- read.structure("./pyrad/outfiles/pabu_c91h60.str",n.ind=95,n.loc=904,onerowperind = F,col.lab=1,col.pop=0,row.marknames=0,NA.char="-9",ask=F)
-# seq <- read.structure("./pyrad/outfiles/pabu_c95h60.str",n.ind=95,n.loc=283,onerowperind = F,col.lab=1,col.pop=0,row.marknames=0,NA.char="-9",ask=F)
-# seq <- seppop(seq,pop=(rownames(seq@tab) %in% c("COA_CWT097")))[[1]] #remove outgroup
+seq <- read.structure("./structure_runs/pabu_c48_full.str",n.ind=95,n.loc=3615,onerowperind = F,col.lab=1,col.pop=0,row.marknames=0,NA.char="-9",ask=F)
 
 #specimen data
 bunting <- read.csv("specimen_data/Pciris_specimen_data.csv")
@@ -96,10 +89,10 @@ dapc <- dapc(seq,pop=bunting$clust.k3)
 #DAPC x-validation
 dapc.xval <- function(){
   train <- dlply(data.frame(sampleID=names(clust.k2$grp),clust.k2=clust.k2$grp),
-                 .(clust.k2),function(e) sample(e$sampleID,length(e$sampleID)/2)) %>% unlist()
+                 .(clust.k2),function(e) sample(e$sampleID,10)) %>% unlist()
   predict <- subset(data.frame(sampleID=names(clust.k2$grp),clust.k2=clust.k2$grp)
                     ,sampleID %in% train==F)$sampleID
-  seq.train <- seppop(seq,pop=rownames(seq@tab) %in% train)[[2]] 
+seq.train <- seppop(seq,pop=rownames(seq@tab) %in% train)[[2]] 
   seq.predict <- seppop(seq,pop=rownames(seq@tab) %in% predict)[[2]]
   dapc.obs <- dapc(seq.train,
                    pop=subset(bunting,sampleID %in% train)$clust.k2,
@@ -110,7 +103,7 @@ dapc.xval <- function(){
   comp <- merge(comp,bunting,by="sampleID",all.x=T,all.y=F)
   1-nrow(subset(comp,grp!=clust.k2))/length(predict)
 }
-pc_assign_match <-foreach(i=1:100,.combine="c") %dopar% dapc.xval()
+pc_assign_match <-foreach(i=1:1000,.combine="c") %dopar% dapc.xval()
 mean(pc_assign_match) # % assigned to correct cluster in DAPC
 
 #xval results summary
@@ -169,16 +162,23 @@ range.crop <- crop(range,c(-118,-73,7,39))
 range.df <- fortify(range.crop)
 range.df <- subset(range.df,id != 0)
 range.df$season <- gsub("1","Nonbreeding",range.df$id) %>% gsub("2","Breeding",.) %>% gsub("3","Migration",.)
-inset <- ggplot(pc,aes(x=PC1,y=PC2,col=clust.k3))+geom_point(size=0.5)+xlab("PC1")+ylab("PC2")+
-  scale_color_manual(values = pabu.palette)+
-  theme(legend.position = "none",axis.ticks = element_blank(),axis.text=element_blank(),
-        axis.title = element_text(size=6),
-        plot.background = element_rect(fill = "transparent", colour = NA))
+inset <- ggplot(pc,aes(x=PC1,y=PC2,col=clust.k3))+xlab("PC1")+ylab("PC2")+
+  scale_color_manual(values = viridis(3))+
+  theme(panel.border = element_rect(color="black",fill=NA),
+        legend.position="none",
+        panel.background = element_blank(),
+        axis.text=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title=element_text(size=7))+
+  geom_vline(aes(xintercept=0),lwd=0.25)+
+  geom_hline(aes(yintercept=0),lwd=0.25)+
+  geom_point(size=.75)
+ 
 mapPlot <- ggplot()+coord_map()+theme_bw()+ylim(7,39)+xlim(-118,-73.5)+
   scale_size(breaks=c(1,4,7,10),name="Samples",range=c(1.5,10))+
-  scale_color_manual(values = pabu.palette,name="Cluster")+
+  scale_color_manual(values = viridis(3),name="Cluster")+
   scale_shape_discrete(solid = F)+
-  scale_fill_manual(name="Season",values = c("grey45","grey85"))+
+  scale_fill_manual(name="Season",values = c("grey50","grey85"))+
   theme(panel.grid=element_blank(),axis.ticks = element_blank(),axis.title = element_blank(),
         axis.text = element_blank())+
   guides(colour = guide_legend(override.aes = list(size=6)))+
@@ -187,7 +187,7 @@ mapPlot <- ggplot()+coord_map()+theme_bw()+ylim(7,39)+xlim(-118,-73.5)+
   geom_path(data=state,aes(x=long,y=lat,group=group),col="grey",lwd=0.25)+
   geom_path(data=map,aes(x=long,y=lat,group=group))+
   geom_point(data=clust_per_locality,aes(x=locality.long,y=locality.lat,size=n,col=clust.k3),alpha=0.7,stroke=0)
-vp <- viewport(height=0.3,width=0.27,x=0.15,y=0.23)
+vp <- viewport(height=0.3,width=0.27,x=0.17,y=0.2)
 print(mapPlot)
 print(inset,vp=vp)
 
@@ -198,7 +198,7 @@ range.df <- fortify(range.crop)
 range.df <- subset(range.df,id != 0)
 range.df$season <- gsub("1","Nonbreeding",range.df$id) %>% gsub("2","Breeding",.) %>% gsub("3","Migration",.)
 inset <- ggplot(pc,aes(x=PC1,y=PC2,col=PC1))+geom_point(size=0.5)+xlab("PC1")+ylab("PC2")+
-  scale_color_manual(values = pabu.palette)+
+  scale_color_gradient2(low=pabu.palette[1],mid=pabu.palette[2],high=pabu.palette[3],name="Cluster")+
   theme(legend.position = "none",axis.ticks = element_blank(),axis.text=element_blank(),
         axis.title = element_text(size=6),
         plot.background = element_rect(fill = "transparent", colour = NA))
