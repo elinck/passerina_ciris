@@ -50,6 +50,8 @@ bunting <- merge(bunting,clust.east,by="sampleID",all.x=T)
 #center and replace missing data with mean allele frequency
 seq.scaled <- scaleGen(seq,NA.method=c("mean"),center=T,scale=F)
 west.scaled <- scaleGen(seq.west,NA.method=c("mean"),center=T,scale=F)
+west.brd.scaled <- scaleGen(seq.west.brd,NA.method=c("mean"),center=T,scale=F)
+west.wnt.scaled <- scaleGen(seq.west.wnt,NA.method=c("mean"),center=T,scale=F)
 east.scaled <- scaleGen(seq.east,NA.method=c("mean"),center=T,scale=F)
 brd.scaled <- scaleGen(seq.brd,NA.method=c("mean"),center=T,scale=F)
 wnt.scaled <- scaleGen(seq.wnt,NA.method=c("mean"),center=T,scale=F)
@@ -67,9 +69,13 @@ pc <- merge(pc,bunting,by="sampleID")
 #plot PCA with sample ID's
 ggplot(data=pc,aes(x=PC1,y=PC2,col=clust.k3))+geom_text(aes(label=sampleID))
 
+#PC1 by longitude
+ggplot(data=pc,aes(x=Longitude,y=PC1))+geom_point()+facet_grid(season~.)+geom_smooth()
+
 #linear regression of PC1 against longitude
 tmp <- subset(pc,!is.na(clust.west))
-model <- lm(tmp$PC1~tmp$Longitude)
+tmp <- pc
+model <- lm(tmp$PC2~tmp$Longitude)
 summary(model)
 ggplot(data=tmp,aes(y=PC1,x=Longitude))+theme_minimal()+geom_point()+stat_smooth(method="lm")
 
@@ -79,7 +85,7 @@ nchar <- as.numeric(names(a)[2])
 colnames(a) <- c("sample","seq")
 b <- lapply(a$seq,FUN=function(e) str_count(e,"N"))
 c <- as.numeric(b)/nchar
-md <- data.frame(sample=a$sample,md=c) %>% cbind(pc=pc$PC1)
+md <- data.frame(sample=a$sample,md=c) %>% cbind(pc=pc$PC2)
 lm(abs(md$pc)~md$md) %>% summary()
 plot(y=abs(md$pc),x=md$md)
 
@@ -155,6 +161,7 @@ ggplot(data=pc,aes(x=LD1.y,fill=xpred_grp))+theme_minimal()+facet_grid(~season)+
 ###################################################################
 ############################ Plots ################################
 ###################################################################
+greys <- c("grey90","grey65","grey40")
 #k3 clusters on a map with inset PCA plot
 clust_per_locality <- ddply(pc,.(clust.k3,locality.long,locality.lat),summarize,n=length(PC1))
 clust_per_locality$n <- as.numeric(clust_per_locality$n)
@@ -163,7 +170,7 @@ range.df <- fortify(range.crop)
 range.df <- subset(range.df,id != 0)
 range.df$season <- gsub("1","Nonbreeding",range.df$id) %>% gsub("2","Breeding",.) %>% gsub("3","Migration",.)
 inset <- ggplot(pc,aes(x=PC1,y=PC2,col=clust.k3))+xlab("PC1")+ylab("PC2")+
-  scale_color_manual(values = viridis(3))+
+  scale_color_manual(values = greys)+
   theme(panel.border = element_rect(color="black",fill=NA),
         legend.position="none",
         panel.background = element_blank(),
@@ -176,7 +183,7 @@ inset <- ggplot(pc,aes(x=PC1,y=PC2,col=clust.k3))+xlab("PC1")+ylab("PC2")+
  
 mapPlot <- ggplot()+coord_map()+theme_bw()+ylim(7,39)+xlim(-118,-73.5)+
   scale_size(breaks=c(1,4,7,10),name="Samples",range=c(1.5,10))+
-  scale_color_manual(values = viridis(3),name="Cluster")+
+  scale_color_manual(values = greys,name="Genotype/nCluster")+
   scale_shape_discrete(solid = F)+
   scale_fill_manual(name="Season",values = c("grey50","grey85"))+
   theme(panel.grid=element_blank(),axis.ticks = element_blank(),axis.title = element_blank(),
@@ -186,8 +193,8 @@ mapPlot <- ggplot()+coord_map()+theme_bw()+ylim(7,39)+xlim(-118,-73.5)+
                aes(x=long,y=lat,group=group,fill=season),col=NA)+
   geom_path(data=state,aes(x=long,y=lat,group=group),col="grey",lwd=0.25)+
   geom_path(data=map,aes(x=long,y=lat,group=group))+
-  geom_point(data=clust_per_locality,aes(x=locality.long,y=locality.lat,size=n,col=clust.k3),alpha=0.7,stroke=0)
-vp <- viewport(height=0.3,width=0.27,x=0.17,y=0.2)
+  geom_point(data=clust_per_locality,aes(x=locality.long,y=locality.lat,size=n,col=clust.k3),stroke=0,alpha=0.85)
+vp <- viewport(height=0.3,width=0.27,x=0.15,y=0.17)
 print(mapPlot)
 print(inset,vp=vp)
 
